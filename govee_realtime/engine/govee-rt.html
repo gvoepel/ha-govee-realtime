@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Govee realtime</title>
+<style>
+:root{color-scheme:dark}
+body{margin:0;background:#0e1117;color:#e6e9ef;font:16px/1.35 -apple-system,Segoe UI,Roboto,sans-serif;padding:14px 14px calc(24px + env(safe-area-inset-bottom))}
+h1{font-size:20px;margin:4px 0 10px}
+.card{background:#171c25;border:1px solid #262d3a;border-radius:14px;padding:12px;margin-bottom:12px}
+.card h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#8a93a3;margin:0 0 8px;display:flex;justify-content:space-between;align-items:center}
+.card h2 button{min-height:30px;padding:4px 10px;font-size:13px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button{border:1px solid #2e3747;background:#1f2633;color:#e6e9ef;border-radius:10px;padding:10px 14px;font-size:15px;min-height:44px}
+button.on{background:#2b5cff;border-color:#2b5cff;color:#fff}
+button.red{background:#7a1f1f;border-color:#9a2a2a}
+.sw{width:44px;height:44px;border-radius:10px;border:3px solid transparent;padding:0}
+.sw.on{border-color:#fff}
+#grid{display:grid;grid-template-columns:repeat(8,1fr);gap:6px}
+#grid button{min-height:40px;padding:0;font-size:13px;background:#1a2029}
+#grid button.lit{background:#f3f4f6;color:#111;border-color:#fff}
+#status{font-size:15px;color:#b7bfcc;white-space:pre-line}
+#status b{color:#fff}
+.ok{color:#6ee7a8}.bad{color:#ff7b7b}.amber{color:#ffc357}
+#now{font-size:14px;color:#8a93a3;margin-top:8px;min-height:18px}
+canvas{width:100%;height:auto;display:block;border-radius:10px;background:#0b0e14}
+#live{font-size:13px;color:#8a93a3;margin-top:6px}
+.knob{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center;margin:8px 0}
+.knob label{font-size:14px;color:#c9d0db}
+.knob output{font:14px ui-monospace,Menlo,Consolas,monospace;color:#fff;min-width:48px;text-align:right}
+.knob input{grid-column:1/3;width:100%}
+input[type=range]{width:100%}
+textarea{width:100%;box-sizing:border-box;min-height:90px;background:#0e1117;color:#e6e9ef;border:1px solid #2e3747;border-radius:10px;padding:8px;font:14px/1.4 inherit}
+#log{font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;color:#8a93a3;max-height:140px;overflow:auto;white-space:pre-wrap}
+small,p.help{color:#8a93a3;font-size:14px;margin:6px 0 0}
+.bsel{grid-column:1/3;padding:8px;border-radius:10px;background:#0e1117;color:#e6e9ef;border:1px solid #2e3747;font-size:15px}
+#b-colors input{width:44px;height:40px;padding:0;border:0;background:none}
+details summary{cursor:pointer;color:#8a93a3;font-size:14px;padding:6px 0}
+.tabs{display:flex;gap:6px;background:#171c25;border:1px solid #262d3a;border-radius:12px;padding:4px;margin-bottom:12px}
+.tabs button{flex:1;border:0;background:transparent;min-height:40px;font-weight:600;color:#8a93a3}
+.tabs button small{font-weight:400;opacity:.8}
+.tabs button.on{background:#2b5cff;color:#fff}
+.static{display:flex;flex-direction:column;align-items:stretch;gap:6px;min-width:150px}
+.static i{display:block;height:8px;border-radius:4px}
+body.pv .live-only,body:not(.pv) .pv-only{display:none!important}
+body.pv #roofcard{border-color:#6b5420}
+@media(max-width:999px){#roofcol{position:sticky;top:0;z-index:5;margin:0 -14px;padding:4px 8px 0;background:#0e1117}
+  #roofcard{padding:6px 8px;margin-bottom:8px} #roofcard h2{margin-bottom:4px;gap:8px;white-space:nowrap}
+  #rooftitle{display:none} #live{margin:0;overflow:hidden;text-overflow:ellipsis;min-width:0}}
+@media(min-width:1000px){body{padding:20px 24px}
+  main{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(380px,1fr);column-gap:16px;max-width:1600px;margin:0 auto;align-items:start}
+  #roofcol{grid-column:1;grid-row:1;position:sticky;top:16px} #ctrl{grid-column:2;grid-row:1/span 2} #notescol{grid-column:1;grid-row:2}
+  h1,.tabs,#tokcard{max-width:1600px;margin-left:auto;margin-right:auto}}
+</style></head><body>
+<h1>Govee realtime</h1>
+<div class="tabs"><button id="tab-pv" onclick="setTab(true)">Preview <small>· canvas only</small></button><button id="tab-live" onclick="setTab(false)">Live <small>· the roof</small></button></div>
+<div class="card" id="tokcard" hidden><h2>Home Assistant token</h2>
+  <small>This page talks to Home Assistant directly. Paste a long-lived access token once; it stays in this browser only.</small>
+  <div class="row" style="margin-top:8px"><input id="tok" type="password" style="flex:1;min-width:0;padding:10px;border-radius:10px;border:1px solid #2e3747;background:#0e1117;color:#fff" placeholder="eyJ…"><button onclick="saveTok()">Save</button></div></div>
+<main><div id="roofcol">
+
+<div class="card" id="roofcard"><h2><span id="rooftitle">Live roof</span> <span id="live"></span></h2><canvas id="roof" width="1200" height="600"></canvas></div>
+</div><div id="ctrl">
+
+<div class="card live-only"><h2>Engine</h2><div id="status">connecting…</div>
+  <div class="row" style="margin-top:10px">
+    <button id="fx-Hyperspace" onclick="effect('Hyperspace')">Hyperspace</button>
+    <button id="fx-Imperial March" onclick="effect('Imperial March')">Imperial March</button>
+    <button id="fx-Saber Duel" onclick="effect('Saber Duel')">Saber Duel</button>
+    <button id="fx-Duel + March" onclick="effect('Duel + March')">Duel + March</button>
+    <button id="fx-LED Sweep" onclick="effect('LED Sweep')">LED Sweep</button>
+    <button id="fx-Halloween Glow" onclick="effect('Halloween Glow')">Halloween Glow</button>
+    <button class="red" onclick="send('off')">Stop → normal scene</button></div>
+  <div id="now"></div></div>
+
+<div class="card"><h2>Static themes <span id="stnow"></span></h2><div class="row" id="statics"></div>
+  <p class="help live-only">Sets the roof, same as the schedule (DIY themes are drawn LED by LED over your home network). Stops any realtime effect first.</p>
+  <p class="help pv-only">Shows the theme on the canvas only; the roof is untouched.</p></div>
+
+<div class="card"><h2>Tweak <span class="row"><button id="resetbtn" onclick="resetGroup()">Reset</button></span></h2>
+  <div id="pvbar" class="row pv-only" style="margin-bottom:8px">
+    <button id="pv-Hyperspace" onclick="pv('Hyperspace')">Hyperspace</button>
+    <button id="pv-Imperial March" onclick="pv('Imperial March')">Imperial March</button>
+    <button id="pv-Saber Duel" onclick="pv('Saber Duel')">Saber Duel</button>
+    <button id="pv-Duel + March" onclick="pv('Duel + March')">Duel + March</button>
+    <button id="pv-Halloween Glow" onclick="pv('Halloween Glow')">Halloween Glow</button>
+    <button style="background:#1f5c38;border-color:#2b7a4b" onclick="send('apply', currentGroup())" title="Stores these settings for the effect; the roof only changes if it is running">Save settings</button></div>
+  <div id="knobs"></div>
+  <p class="help" id="tweakhelp">Sliders apply on release and are saved by the engine. The group shown follows the running effect. Switch Preview on to try settings on the canvas only, without touching the roof, then Apply.</p></div>
+
+<div class="card" id="bcard"><h2>Theme builder <span class="row"><button id="brun" onclick="bSend(true)">Run on roof</button></span></h2>
+  <div class="row" style="margin-bottom:4px"><button id="bkind-rt" onclick="bKind('rt')">Realtime · engine on the PC</button><button id="bkind-diy" onclick="bKind('diy')">Controller · the lights run it alone</button></div>
+  <p class="help" id="bkindhelp" style="margin:0 0 10px"></p>
+  <div class="row" id="b-layers" style="margin-bottom:6px"></div>
+  <div class="knob"><label>Where (this layer's lights)</label><select id="b-zone" class="bsel"></select>
+    <input id="b-leds" placeholder="LED numbers, e.g. 0-12, 40-44" style="grid-column:1/3;padding:8px;border-radius:10px;border:1px solid #2e3747;background:#0e1117;color:#fff;font-size:15px"></div>
+  <div class="knob"><label>Start from</label><select id="b-start" class="bsel" onchange="bStart(this)"></select></div>
+  <div class="knob b-rt"><label>Motion</label><select id="b-motion" class="bsel"></select></div>
+  <div class="knob"><label>Colours</label><span></span><div class="row" id="b-colors" style="grid-column:1/3"></div></div>
+  <div class="knob b-pat"><label>Colour pattern</label><select id="b-pattern" class="bsel"></select></div>
+  <div id="b-sliders"></div>
+  <div class="b-dir"><div class="knob"><label>Direction</label><select id="b-dir" class="bsel"></select></div>
+    <div class="knob"><label>On the arches</label><select id="b-peaks" class="bsel"></select></div>
+    <div class="knob"><label>Along the runways</label><select id="b-entry" class="bsel"></select></div></div>
+  <div class="b-diy"><div class="knob"><label>Lights' effect (whole strip)</label><select id="b-fx" class="bsel"></select></div><div id="b-fxk"></div></div>
+  <div class="row" style="margin-top:10px"><input id="b-name" placeholder="Name" maxlength="40" style="flex:1;min-width:0;padding:10px;border-radius:10px;border:1px solid #2e3747;background:#0e1117;color:#fff;font-size:15px">
+    <button id="b-savebtn" style="background:#1f5c38;border-color:#2b7a4b" onclick="bSave()">Save</button><button onclick="bDelete()">Delete</button></div>
+  <p class="help" id="bhelp"></p></div>
+
+<details class="live-only"><summary>Raw pixel tests (pixel count, colours, patterns, pixel grid)</summary>
+<div class="card"><h2>Pixel count</h2><div class="row" id="counts"></div>
+  <p class="help">The H706C takes at most <i>max_pixels</i> per frame (a bigger frame is dropped). With the strip "cut" at its real LED count in the app, that equals the LED count and every pixel is one LED; otherwise the strip spreads fewer pixels over its LEDs in pairs. Use the pixel grid or Chase to find where each LED is.</p></div>
+<div class="card"><h2>Colour</h2><div class="row" id="colors"></div></div>
+<div class="card"><h2>Pattern (tapping one turns realtime ON)</h2><div class="row">
+  <button id="p-fill" onclick="send('fill')">Solid</button>
+  <button id="p-alt" onclick="send('alt')">Every other</button>
+  <button id="p-grad" onclick="send('grad')">Red→blue gradient</button>
+  <button id="p-chase" onclick="send('chase', chaseSpeed)">Chase</button>
+  <span class="row" id="speeds"></span></div></div>
+<div class="card"><h2>Pixels — tap to toggle, sends live</h2>
+  <div class="row" style="margin-bottom:8px">
+    <button onclick="stepLit(-1)">◀ prev</button><button onclick="stepLit(1)">next ▶</button>
+    <button onclick="setAll(false)">Clear</button><button onclick="setAll(true)">All</button></div>
+  <div id="grid"></div></div>
+<div class="card"><h2>Strip brightness <span id="briv">40</span>%</h2>
+  <input type="range" id="bri" min="5" max="100" value="40" oninput="briv.textContent=this.value" onchange="send('bri', this.value)">
+  <p class="help">The strip's own brightness (what the app sets). Realtime effects run at this times the Overall brightness knob.</p></div>
+</details>
+
+</div><div id="notescol">
+<div class="card"><h2>Notes (saved in this browser)</h2>
+  <textarea id="notes" placeholder="what to change…"></textarea>
+  <div class="row" style="margin-top:8px"><button onclick="copyNotes()">Copy notes</button><button onclick="notes.value='';saveNotes()">Clear notes</button></div></div>
+<div class="card"><h2>Sent</h2><div id="log"></div></div>
+</div></main>
+
+<script>
+const HA = window.location.origin;
+const LIGHT = 'light.permanent_lights_pro';   // your Govee light entity in Home Assistant
+const COUNTS = [10, 15, 20, 24, 30, 40, 48, 60, 70, 79];
+const COLORS = {'ffffff':'white', 'ff0000':'red', '00ff00':'green', '0000ff':'blue', 'ffff00':'yellow', '00ffff':'cyan', 'ff00ff':'magenta', 'ff7800':'orange'};
+const PATTERN_NAMES = {fill:'Solid', alt:'Every other', grad:'Red→blue gradient', chase:'Chase', mask:'Pixel grid'};
+const EFFECTS = ['Hyperspace', 'Imperial March', 'Saber Duel', 'Duel + March', 'LED Sweep', 'Halloween Glow'];
+const GROUPS_OF = {'Duel + March': ['Saber Duel', 'Imperial March']};
+// knobs: key -> [label, min, max, step, group]
+const KNOBS = {
+  fps:['Frames per second', 5, 40, 1, 'Global'], gain:['Overall brightness', 0.1, 1, 0.05, 'Global'],
+  duel_speed:['Retract speed after a clash (LEDs/s)', 1, 15, 0.5, 'Saber Duel'], duel_min_blade:['Retracted blade length (LEDs)', 1, 6, 1, 'Saber Duel'],
+  duel_amp0:['Swing size at the start of the build-up (LEDs)', 0, 3, 0.1, 'Saber Duel'], duel_amp:['Swing size at the end of the build-up (LEDs)', 0, 4, 0.1, 'Saber Duel'],
+  duel_freq0:['Swing speed at the start (per s)', 0.05, 2, 0.05, 'Saber Duel'], duel_freq:['Swing speed at the end (per s)', 0.3, 3, 0.1, 'Saber Duel'],
+  duel_ease:['Ramp shape: 1 = even, higher = calm then frantic', 0.5, 3, 0.1, 'Saber Duel'], duel_counter:['How much blue gives way to red lunges', 0, 1, 0.05, 'Saber Duel'],
+  duel_probe_min:['Build-up to the next clash, min (s)', 1, 20, 0.5, 'Saber Duel'], duel_probe_max:['Build-up to the next clash, max (s)', 2, 30, 0.5, 'Saber Duel'],
+  duel_clash_min:['Clash lasts at least (s)', 0.5, 8, 0.5, 'Saber Duel'], duel_clash_max:['Clash lasts at most (s)', 1, 10, 0.5, 'Saber Duel'],
+  duel_idle:['Blade brightness between clashes', 0.2, 1, 0.05, 'Saber Duel'], duel_pulse_hz:['Pulse speed during clash (per s)', 0.5, 8, 0.25, 'Saber Duel'],
+  duel_pulse_depth:['Pulse depth during clash', 0, 1, 0.05, 'Saber Duel'], duel_flicker:['Impact flicker depth', 0, 1, 0.05, 'Saber Duel'],
+  duel_peak_only:['Clash only at the peak (1) or anywhere (0)', 0, 1, 1, 'Saber Duel'],
+  hyper_cycle:['Cycle length (s)', 4, 20, 0.5, 'Hyperspace'], hyper_jump:['Jump at (s)', 2, 18, 0.2, 'Hyperspace'],
+  hyper_speed:['Top star speed (LEDs/s)', 5, 60, 1, 'Hyperspace'], hyper_tail:['Streak length (LEDs)', 1, 12, 0.5, 'Hyperspace'],
+  hyper_density:['Star density', 0.2, 3, 0.1, 'Hyperspace'],
+  march_bpm:['Tempo (bpm)', 60, 160, 1, 'Imperial March'], march_gap:['Dark gap at the end of each note', 0, 0.6, 0.05, 'Imperial March'],
+  march_floor:['Brightness between notes', 0, 0.5, 0.02, 'Imperial March'], march_block:['Runway blocks: 0 = whole runway flashes, 2–6 = block spacing', 0, 6, 1, 'Imperial March'],
+  march_flow:['Runway flow speed toward its target end (LEDs/s)', 0, 15, 0.5, 'Imperial March'],
+  march_gable:['Arch pulse strength (March alone)', 0, 1, 0.05, 'Imperial March'],
+  hg_base:['Dimmest point between waves', 0, 1, 0.05, 'Halloween Glow'], hg_wave:['Wave length (LEDs)', 4, 60, 1, 'Halloween Glow'],
+  hg_speed:['Wave drift (LEDs/s)', 0.1, 6, 0.1, 'Halloween Glow'], hg_white:['In-between brightness', 0, 1, 0.02, 'Halloween Glow'],
+  hg_white_wave:['In-betweens follow the waves: 0 = steady, 1 = fully', 0, 1, 0.05, 'Halloween Glow'],
+  hg_dir:['Wave direction', 'choice', ['Mixed (drifts both ways)', 'Along the strip →', 'Along the strip ←', 'Down the arches', 'Along the runways to the door', 'Arches + runways (downhill to the door)'], 0, 'Halloween Glow'],
+  hg_green_rgb:['Colour 1', 'rgb', 0, 0, 'Halloween Glow'], hg_purple_rgb:['Colour 2', 'rgb', 0, 0, 'Halloween Glow'], hg_white_rgb:['In-between colour', 'rgb', 0, 0, 'Halloween Glow'],
+};   // min 'rgb' = colour picker (value 0xRRGGBB); min 'choice' = dropdown, max = option labels (value = index)
+const hex6 = v => '#' + (+v || 0).toString(16).padStart(6, '0');
+let n = +localStorage.gv_n || 24, rgb = localStorage.gv_rgb || 'ffffff', chaseSpeed = localStorage.gv_speed || '1', lit = new Set();
+let tok = localStorage.ha_token || '', params = {}, pparams = {}, activeEffect = null, dragging = null, knobGroup = null;
+let previewOn = localStorage.gv_preview === '1', previewMode = null;
+const src = () => previewOn ? pparams : params;
+function setTab(pvTab){ previewOn = pvTab; localStorage.gv_preview = previewOn ? '1' : '0'; applyPreviewUi(); buildKnobs(currentGroup()); buildStatics(); }
+function applyPreviewUi(){
+  document.body.classList.toggle('pv', previewOn); $('tab-pv').className = previewOn ? 'on' : ''; $('tab-live').className = previewOn ? '' : 'on';
+  $('rooftitle').textContent = previewOn ? 'Preview' : 'Live roof';
+  for(const e of ['Hyperspace', 'Imperial March', 'Saber Duel', 'Duel + March', 'Halloween Glow']) $('pv-' + e).className = (previewOn && e === previewMode) ? 'on' : '';
+  bHelp();
+  $('tweakhelp').textContent = previewOn ? 'Trial run on the canvas only; the roof is untouched. Save settings stores them for the next time that effect runs on the roof.' : 'Changes the strip now: sliders apply on release and are saved by the engine. The group shown follows the running effect.';
+}
+function pv(name){ pvStatic = null; buildStatics(); previewMode = name; applyPreviewUi(); send('preview', name); buildKnobs(currentGroup()); }
+function resetGroup(){ const g = currentGroup(); if(!g || g === 'Global') return logLine('nothing to reset - pick an effect');
+  if(previewOn || confirmReset(g)) send(previewOn ? 'preset' : 'reset', g); }
+function confirmReset(g){ const b = $('resetbtn'); if(b.dataset.armed === g){ b.dataset.armed = ''; b.textContent = 'Reset'; return true; }
+  b.dataset.armed = g; b.textContent = 'Tap again: reset ' + g; setTimeout(() => { if(b.dataset.armed === g){ b.dataset.armed = ''; b.textContent = 'Reset'; } }, 4000); return false; }
+function currentGroup(){ return previewOn ? (previewMode || null) : (activeEffect === 'LED Sweep' ? 'Global' : activeEffect); }
+const $ = id => document.getElementById(id);
+
+function saveTok(){ tok = $('tok').value.trim(); if(tok){ localStorage.ha_token = tok; $('tokcard').hidden = true; poll(); } }
+async function api(method, path, body){
+  const r = await fetch(HA + path, {method, headers:{Authorization:'Bearer ' + tok, 'Content-Type':'application/json'}, body: body ? JSON.stringify(body) : undefined});
+  if(r.status === 401){ $('tokcard').hidden = false; document.querySelector('details').open = true; throw new Error('token rejected'); }
+  return r.ok ? r.json() : Promise.reject(new Error(method + ' ' + path + ' -> ' + r.status));
+}
+function logLine(s){ const t = new Date().toTimeString().slice(0,8); $('log').textContent = (t + '  ' + s + '\n' + $('log').textContent).slice(0, 4000); }
+let sendTimer;
+function send(mode, arg){
+  const value = ['v1', mode, ['bri','off','set','reset','preview','pset','preset','apply'].includes(mode) ? '' : n, mode === 'grad' ? '' : rgb, arg == null ? '' : String(arg), '#' + Date.now().toString(36)].join('|');
+  if(value.length > 255){ logLine('command too long'); return; }
+  if(!['set','pset','preview','preset'].includes(mode)) $('now').innerHTML = '<span class="amber">sending ' + (PATTERN_NAMES[mode] || mode) + '…</span>';
+  clearTimeout(sendTimer);
+  sendTimer = setTimeout(async () => {
+    try { await api('POST', '/api/services/input_text/set_value', {entity_id:'input_text.govee_rt_cmd', value}); logLine(value); setTimeout(poll, 1500); }
+    catch(e){ logLine('FAILED ' + e.message); $('now').innerHTML = '<span class="bad">failed: ' + e.message + '</span>'; }
+  }, mode === 'mask' ? 250 : 0);
+}
+async function effect(name){
+  $('now').innerHTML = '<span class="amber">starting ' + name + '…</span>';
+  try { await api('POST', '/api/services/input_select/select_option', {entity_id:'input_select.govee_rt_scene', option:name}); logLine('effect ' + name); setTimeout(poll, 1500); }
+  catch(e){ logLine('FAILED ' + e.message); }
+}
+function sendMask(){ let hex = 0n; for(const p of lit) hex |= 1n << BigInt(p); send('mask', hex.toString(16)); }
+function buildCounts(){ $('counts').innerHTML = ''; for(const c of COUNTS){ const b = document.createElement('button'); b.textContent = c; b.className = c === n ? 'on' : ''; b.onclick = () => { n = c; localStorage.gv_n = c; lit.clear(); buildCounts(); buildGrid(); }; $('counts').appendChild(b); } }
+function buildColors(){ $('colors').innerHTML = ''; for(const [h, name] of Object.entries(COLORS)){ const b = document.createElement('button'); b.className = 'sw' + (h === rgb ? ' on' : ''); b.style.background = '#' + h; b.title = name; b.onclick = () => { rgb = h; localStorage.gv_rgb = h; buildColors(); if(lit.size) sendMask(); }; $('colors').appendChild(b); } }
+function buildSpeeds(){ $('speeds').innerHTML = ''; for(const s of ['0.5', '1', '2']){ const b = document.createElement('button'); b.textContent = s + ' s/step'; b.className = s === chaseSpeed ? 'on' : ''; b.onclick = () => { chaseSpeed = s; localStorage.gv_speed = s; buildSpeeds(); }; $('speeds').appendChild(b); } }
+function buildGrid(){ $('grid').innerHTML = ''; for(let i = 0; i < n; i++){ const b = document.createElement('button'); b.textContent = i + 1; b.className = lit.has(i) ? 'lit' : ''; b.onclick = () => { lit.has(i) ? lit.delete(i) : lit.add(i); buildGrid(); sendMask(); }; $('grid').appendChild(b); } }
+function setAll(on){ lit.clear(); if(on) for(let i = 0; i < n; i++) lit.add(i); buildGrid(); sendMask(); }
+function stepLit(d){ let cur = lit.size === 1 ? [...lit][0] : (d > 0 ? -1 : n); cur = ((cur + d) % n + n) % n; lit.clear(); lit.add(cur); buildGrid(); sendMask(); }
+function saveNotes(){ localStorage.gv_notes = $('notes').value; }
+function copyNotes(){ navigator.clipboard && navigator.clipboard.writeText($('notes').value).then(() => logLine('notes copied')); }
+$('notes').value = localStorage.gv_notes || ''; $('notes').addEventListener('input', saveNotes);
+
+// ---- tweak knobs
+function buildKnobs(group){
+  knobGroup = group; const box = $('knobs'); box.innerHTML = '';
+  const groups = ['Global'].concat(group && group !== 'Global' ? (GROUPS_OF[group] || [group]) : []);
+  for(const [key, [label, min, max, step, g]] of Object.entries(KNOBS)){
+    if(!groups.includes(g)) continue;
+    const div = document.createElement('div'); div.className = 'knob';
+    const p = src();
+    if(min === 'rgb'){
+      div.innerHTML = `<label>${label}</label><input type="color" id="k-${key}" value="${hex6(p[key])}" style="grid-column:auto;width:56px;height:36px;padding:0;border:0;background:none">`;
+      box.appendChild(div);
+      const inp = div.querySelector('input'); inp.oninput = () => { dragging = key; };
+      inp.onchange = () => { dragging = null; const v = parseInt(inp.value.slice(1), 16); src()[key] = v; send(previewOn ? 'pset' : 'set', key + '=' + v); };
+      continue;
+    }
+    if(min === 'choice'){
+      div.innerHTML = `<label>${label}</label><select id="k-${key}" style="grid-column:1/3;padding:8px;border-radius:10px;background:#0e1117;color:#e6e9ef;border:1px solid #2e3747;font-size:15px">${max.map((o, i) => `<option value="${i}">${o}</option>`).join('')}</select>`;
+      box.appendChild(div);
+      const sel = div.querySelector('select'); sel.value = String(Math.round(p[key] ?? 0));
+      sel.onchange = () => { src()[key] = +sel.value; send(previewOn ? 'pset' : 'set', key + '=' + sel.value); };
+      continue;
+    }
+    div.innerHTML = `<label>${label}</label><output id="o-${key}">${fmt(p[key] ?? '')}</output><input type="range" id="k-${key}" min="${min}" max="${max}" step="${step}" value="${p[key] ?? min}">`;
+    box.appendChild(div);
+    const inp = div.querySelector('input'); inp.oninput = () => { dragging = key; $('o-' + key).textContent = fmt(inp.value); };
+    inp.onchange = () => { dragging = null; src()[key] = +inp.value; send(previewOn ? 'pset' : 'set', key + '=' + inp.value); };
+  }
+  if(!group) box.innerHTML += '<p class="help">' + (previewOn ? 'Pick an effect above to preview.' : 'Start an effect to see its knobs.') + '</p>';
+}
+function fmt(v){ if(v === '') return ''; const s = (+v).toFixed((+v) % 1 ? 2 : 0); return s.includes('.') ? s.replace(/\.?0+$/, '') : s; }
+function refreshKnobs(){ const p = src(); for(const key of Object.keys(KNOBS)){ const inp = $('k-' + key); if(inp && dragging !== key && p[key] != null){
+  if(inp.type === 'color') inp.value = hex6(p[key]); else if(inp.tagName === 'SELECT') inp.value = String(Math.round(p[key])); else { inp.value = p[key]; $('o-' + key).textContent = fmt(p[key]); } } } }
+
+// ---- theme builder (engine effect 'Custom'; the design goes to the engine via sensor.govee_rt_design, too big for the input_text)
+const MOTIONS = ['Static', 'Breathe', 'Wave', 'Random waves', 'Scroll colours', 'Chase', 'Comet', 'Twinkle', 'Sparkle', 'Colour fade'];
+let ZONE_NAMES = ['All'];   // from the engine's status (built from config.json: each arch, runway, side and the door)
+const BCHOICES = {zone:[], motion:MOTIONS, pattern:['Repeat', 'Blend', 'Random'],
+  dir:[['Forward', 'Along the strip (power end first)'], ['Reverse', 'Along the strip, backwards'],
+    ['Downhill', 'Down from every peak, on along the walls and runways'], ['Uphill', 'Up to the peaks (reverse of that)']],
+  peaks:[['Follow', 'Same as the strip'], ['Down', 'Down from the peak'], ['Up', 'Up to the peak']],
+  entry:[['Follow', 'Same as the strip'], ['To door', 'Toward the door'], ['From door', 'Out from the door']]};
+// slider: key -> [label, min, max, step, motions that use it]
+const BKNOBS = {
+  group:['LEDs per colour', 1, 12, 1, MOTIONS.filter(m => m !== 'Colour fade')],
+  speed:['Speed', 0.1, 20, 0.1, MOTIONS.filter(m => m !== 'Static')],
+  size:['Size (wave / block / comet length, LEDs)', 2, 60, 1, ['Wave', 'Random waves', 'Chase', 'Comet']],
+  density:['How many LEDs twinkle / sparkle', 0.05, 1, 0.05, ['Twinkle', 'Sparkle']],
+  floor:['Dimmest level', 0, 1, 0.05, ['Breathe', 'Wave', 'Random waves', 'Chase', 'Comet', 'Twinkle', 'Sparkle']],
+  bri:['Brightness', 0.05, 1, 0.05, MOTIONS]};
+const MOVING = ['Wave', 'Random waves', 'Scroll colours', 'Chase', 'Comet'];
+const PALETTES = {Halloween:['00ff00', '1f1f1f', '8b00ff', '1f1f1f'], Christmas:['ff0000', '00a000', 'ffb070'], 'July 4th':['ff0000', 'ffffff', '0030ff'],
+  "Valentine's":['ff0030', 'ff70a0', 'ffffff'], "St Patrick's":['00b000', '80ff40', 'ffd000'], Easter:['ff9ec7', 'b5a0ff', '9effc0', 'fff19e'],
+  Thanksgiving:['ff6a00', 'ffb000', '8b2500'], Hanukkah:['0030ff', 'ffffff'], "New Year's":['ffd700', 'ffffff', 'c0c0c0'],
+  Rainbow:['ff0000', 'ff8000', 'ffff00', '00ff00', '0080ff', '8000ff'], 'Warm white':['ffb070'], 'Cool white':['d0e0ff']};
+const B_LAYER = {zone:'All', leds:'', motion:'Random waves', colors:PALETTES.Halloween.slice(), pattern:'Repeat', group:1, speed:1.5, size:18, floor:0.15, bri:1, density:0.3, dir:'Forward', peaks:'Follow', entry:'Follow'};
+const DIY_FX = ['Cycle', 'Clockwise', 'Counterclockwise', 'Twinkle', 'Gradient', 'Breathe'];   // the strip's own DIY effects (codes in govee_diy.py)
+const DIY_KNOBS = {speed:['Effect speed (0 = still)', 0, 100, 1], pct:['Strip brightness %', 1, 100, 1]}, B_FX = {effect:'Cycle', speed:7, pct:40};
+const asDesign = d => { d = JSON.parse(JSON.stringify(d || {})); const layers = Array.isArray(d.layers) ? d.layers : [d];   // early designs were one flat layer
+  return {layers: layers.map(l => Object.assign({}, B_LAYER, l)), fx: Object.assign({}, B_FX, d.fx || {}), kind: d.kind === 'diy' ? 'diy' : 'rt'}; };   // rt = engine, diy = controller
+let B; try { B = asDesign(JSON.parse(localStorage.gv_build || 'null') || {}); } catch(e){ B = asDesign({}); }
+let bL = 0, designs = {}, designsSig = '', diys = {}, diySig = '', zonesSig = '', bTimer;
+const L = () => B.layers[bL];                       // the layer being edited
+const esc = s => String(s).replace(/[<>&"']/g, c => '&#' + c.charCodeAt(0) + ';');
+function bBuild(){
+  bL = Math.min(bL, B.layers.length - 1);
+  BCHOICES.zone = ZONE_NAMES.map(z => [z, z === 'All' ? 'Whole strip' : z]).concat([['Custom', 'Pick LED numbers…']]);
+  for(const [k, opts] of Object.entries(BCHOICES)){ const sel = $('b-' + k);
+    sel.innerHTML = opts.map(o => { const [v, l] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(v)}">${esc(l)}</option>`; }).join('');
+    sel.value = L()[k]; sel.onchange = () => { L()[k] = sel.value; if(k === 'zone') bLayers(); bChanged(); }; }
+  $('b-leds').value = L().leds; $('b-leds').onchange = () => { L().leds = $('b-leds').value; bChanged(); };
+  $('b-sliders').innerHTML = '';
+  for(const [k, [label, min, max, step]] of Object.entries(BKNOBS)){ const div = document.createElement('div'); div.className = 'knob'; div.id = 'bk-' + k;
+    div.innerHTML = `<label>${label}</label><output>${fmt(L()[k])}</output><input type="range" min="${min}" max="${max}" step="${step}" value="${L()[k]}">`;
+    const inp = div.querySelector('input'); inp.oninput = () => { div.querySelector('output').textContent = fmt(inp.value); }; inp.onchange = () => { L()[k] = +inp.value; bChanged(); };
+    $('b-sliders').appendChild(div); }
+  const fx = $('b-fx'); fx.innerHTML = DIY_FX.map(o => `<option>${o}</option>`).join(''); fx.value = B.fx.effect; fx.onchange = () => { B.fx.effect = fx.value; bChanged(); };
+  $('b-fxk').innerHTML = '';
+  for(const [k, [label, min, max, step]] of Object.entries(DIY_KNOBS)){ const div = document.createElement('div'); div.className = 'knob';
+    div.innerHTML = `<label>${label}</label><output>${B.fx[k]}</output><input type="range" min="${min}" max="${max}" step="${step}" value="${B.fx[k]}">`;
+    const inp = div.querySelector('input'); inp.oninput = () => { div.querySelector('output').textContent = inp.value; }; inp.onchange = () => { B.fx[k] = +inp.value; bChanged(); };
+    $('b-fxk').appendChild(div); }
+  bLayers(); bColors(); bStartList(); bShow();
+}
+function bLayers(){ const box = $('b-layers'); box.innerHTML = '';
+  const btn = (t, cls, fn) => { const b = document.createElement('button'); b.textContent = t; b.className = cls; b.onclick = fn; box.appendChild(b); };
+  B.layers.forEach((l, i) => btn((i + 1) + ' · ' + (l.zone === 'Custom' ? (l.leds || 'pick LEDs') : l.zone === 'All' ? 'Whole strip' : l.zone), i === bL ? 'on' : '', () => { bL = i; bBuild(); }));
+  if(B.layers.length < 8) btn('+ Layer', '', () => { B.layers.push(Object.assign(JSON.parse(JSON.stringify(L())), {zone:ZONE_NAMES[1] || 'All'})); bL = B.layers.length - 1; bBuild(); bChanged(); });
+  if(B.layers.length > 1) btn('Delete layer', 'red', () => { B.layers.splice(bL, 1); bL = Math.max(0, bL - 1); bBuild(); bChanged(); });
+}
+function bColors(){ const box = $('b-colors'); box.innerHTML = ''; const cs = L().colors;
+  cs.forEach((c, i) => { const inp = document.createElement('input'); inp.type = 'color'; inp.value = '#' + c; inp.onchange = () => { cs[i] = inp.value.slice(1); bChanged(); }; box.appendChild(inp); });
+  const btn = (t, fn) => { const b = document.createElement('button'); b.textContent = t; b.onclick = fn; box.appendChild(b); };
+  if(cs.length < 8) btn('+', () => { cs.push(cs[cs.length - 1]); bColors(); bChanged(); });
+  if(cs.length > 1) btn('−', () => { cs.pop(); bColors(); bChanged(); });
+}
+function bShow(){ const diy = B.kind === 'diy', m = diy ? 'Static' : L().motion;   // a controller theme is the colours painted still + the lights' effect
+  for(const [k, v] of Object.entries(BKNOBS)) $('bk-' + k).style.display = v[4].includes(m) ? '' : 'none';   // [hidden] loses to .knob{display:grid}
+  document.querySelector('.b-pat').style.display = m === 'Colour fade' ? 'none' : ''; document.querySelector('.b-dir').style.display = MOVING.includes(m) ? '' : 'none';
+  document.querySelector('.b-rt').style.display = diy ? 'none' : ''; document.querySelector('.b-diy').style.display = diy ? '' : 'none';
+  $('bkind-rt').className = diy ? '' : 'on'; $('bkind-diy').className = diy ? 'on' : ''; $('b-savebtn').textContent = diy ? 'Save to controller' : 'Save design';
+  $('bkindhelp').textContent = diy ? 'Sent to the lights once; they animate the painted colours with their own effect, PC off or on. Schedules as "DIY: name".'
+    : 'The engine on the PC paints every frame: per-layer motion, direction, smooth fades. Needs the PC on. Schedules as "RT: name".';
+  $('b-leds').style.display = L().zone === 'Custom' ? '' : 'none';
+  for(const k of ['peaks', 'entry']) $('b-' + k).parentElement.style.display = ['Downhill', 'Uphill'].includes(L().dir) ? 'none' : ''; bHelp(); }   // whole-roof flows cover the arches + runways
+function bKind(k){ B.kind = k; bChanged(); }
+function bStartList(){ const names = Object.keys(designs), cn = Object.keys(diys).sort();
+  $('b-start').innerHTML = '<option value="">Pick colours or a saved design…</option><optgroup label="Colour themes">' + Object.keys(PALETTES).map(p => `<option value="p:${esc(p)}">${esc(p)}</option>`).join('') + '</optgroup>'
+    + (names.length ? '<optgroup label="Saved designs">' + names.map(d => `<option value="d:${esc(d)}">${esc(d)}</option>`).join('') + '</optgroup>' : '')
+    + (cn.length ? '<optgroup label="Controller themes">' + cn.map(d => `<option value="c:${esc(d)}">${esc(d)}</option>`).join('') + '</optgroup>' : ''); }
+function bStart(sel){ const v = sel.value; if(!v) return;
+  if(v.startsWith('p:')){ L().colors = PALETTES[v.slice(2)].slice(); if(v === 'p:Rainbow') L().pattern = 'Blend'; }   // colours for this layer
+  else if(v.startsWith('c:')){ const d = diys[v.slice(2)]; B = asDesign(d.spec); B.fx = {effect:d.fx[0], speed:d.fx[1], pct:d.pct}; B.kind = 'diy'; bL = 0; $('b-name').value = v.slice(2); }   // a controller theme
+  else { B = asDesign(designs[v.slice(2)]); B.kind = 'rt'; bL = 0; $('b-name').value = v.slice(2); }                     // a whole saved realtime design
+  bBuild(); bChanged(); }
+function bStore(){ try { localStorage.gv_build = JSON.stringify(B); } catch(e){} }
+function bChanged(){ bStore(); bShow(); clearTimeout(bTimer); bTimer = setTimeout(() => bSend(false), 300); }
+const bOnRoof = () => engState === 'Custom' || engState in designs;
+function bHelp(){ const diy = B.kind === 'diy'; $('brun').textContent = previewOn ? 'Preview' : diy ? 'Send to roof' : 'Run on roof';
+  $('bhelp').textContent = (previewOn ? (diy ? 'Preview imitates the lights\' effect; its speeds are approximate (the slow end was measured, 100 = fast). ' : 'Changes show on the canvas only. ')
+      : diy ? 'Nothing reaches the roof until you tap Send to roof: that saves the theme and uploads it once (realtime stops). ' : bOnRoof() ? 'Live: changes go straight to the roof. ' : 'Tap Run on roof to send this design to the roof. ')
+    + 'Layers paint in order: a later layer covers earlier ones on its lights; lights in no layer stay off. A dark grey colour = dim white. Colour themes in "Start from" recolour the current layer.'; }
+function bSend(force){
+  if(B.kind === 'diy' && !previewOn){ if(force) diySend(true); return; }   // a controller theme goes to the roof once, by name
+  if(!previewOn && !force && !bOnRoof()) return;
+  if(previewOn){ pvStatic = null; previewMode = 'Custom'; applyPreviewUi(); buildKnobs(currentGroup()); buildStatics(); }
+  design(previewOn ? 'preview' : 'roof', previewOn && B.kind === 'diy' ? {fx:B.fx} : undefined);   // with fx the engine previews the controller's effect
+}
+async function design(to, extra){
+  try { await api('POST', '/api/states/sensor.govee_rt_design', {state:to, attributes:Object.assign({to, spec:B, nonce:Date.now().toString(36), friendly_name:'Govee theme builder message'}, extra || {})});
+    logLine('builder → ' + to + (extra && extra.name ? ' ' + extra.name : '')); setTimeout(poll, 1500); }
+  catch(e){ logLine('FAILED ' + e.message); }
+}
+function bSave(){ if(B.kind === 'diy') return diySend(false); const name = $('b-name').value.trim(); if(!name) return logLine('give the design a name first');
+  if(EFFECTS.includes(name) || ['Off', 'Custom'].includes(name) || name.startsWith('_')) return logLine('that name is taken by a built-in effect');
+  design('save', {name}); }
+function bDelete(){ if(B.kind === 'diy') return diyDelete(); const name = $('b-name').value.trim(); if(!(name in designs)) return logLine('no saved design called "' + name + '"');
+  if(confirm('Delete "' + name + '"?')) design('delete', {name}); }
+function diySend(apply){ const name = $('b-name').value.trim(); if(!name) return logLine('give the theme a name first');   // save on the controller (+ apply via HA = stops realtime)
+  if(EFFECTS.includes(name) || ['Off', 'Custom'].includes(name) || name.startsWith('_')) return logLine('that name is taken by a built-in effect');
+  design('diy', {name, fx:B.fx, apply}); }
+function diyDelete(){ const name = $('b-name').value.trim(); if(!(name in diys)) return logLine('no controller theme called "' + name + '"');
+  if(confirm('Delete controller theme "' + name + '"?')) design('diydel', {name}); }
+
+// ---- live roof
+let layout = null; const cv = $('roof'), ctx = cv.getContext('2d');
+let lastDraw = [null, 'loading'];
+function loadLayout(){   // made by layout.py from config.json
+  fetch('/local/govee_led_layout.json?t=' + Date.now()).then(r => r.json()).then(l => { layout = l; cv.width = l.w; cv.height = l.h; drawRoof(...lastDraw); }); }
+loadLayout();
+function drawRoof(px, mode){
+  lastDraw = [px, mode]; if(!layout) return; const L = layout; ctx.clearRect(0, 0, L.w, L.h);
+  ctx.fillStyle = '#4a5365'; ctx.font = 'bold 20px sans-serif'; ctx.textAlign = 'center'; for(const [p, t] of L.labels || []) ctx.fillText(t, p[0], p[1]);
+  ctx.strokeStyle = '#2f3745'; ctx.lineWidth = 8; ctx.lineJoin = 'round';
+  for(const path of L.paths){ ctx.beginPath(); path.forEach((i, k) => k ? ctx.lineTo(...L.leds[i]) : ctx.moveTo(...L.leds[i])); ctx.stroke(); }
+  for(let i = 0; i < L.leds.length; i++){
+    if(!L.leds[i]) continue; const [x, y] = L.leds[i]; let c = px && px.length >= (i + 1) * 6 ? px.slice(i * 6, i * 6 + 6) : null;
+    const r = parseInt((c || '000000').slice(0, 2), 16), g = parseInt((c || '000000').slice(2, 4), 16), b = parseInt((c || '000000').slice(4, 6), 16);
+    const bright = Math.max(r, g, b);
+    if(bright > 30){ ctx.shadowColor = `rgb(${r},${g},${b})`; ctx.shadowBlur = 14 + bright / 12; } else ctx.shadowBlur = 0;
+    ctx.fillStyle = bright > 8 ? `rgb(${r},${g},${b})` : '#232a36'; ctx.beginPath(); ctx.arc(x, y, 9, 0, 6.283); ctx.fill();
+    ctx.shadowBlur = 0; ctx.strokeStyle = '#0b0e14'; ctx.lineWidth = 2; ctx.stroke();
+  }
+  if(mode === 'Off' || !px){ ctx.fillStyle = 'rgba(14,17,23,.6)'; ctx.fillRect(0, 0, L.w, L.h); ctx.fillStyle = '#9aa3b2'; ctx.font = 'bold 30px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(mode === 'Off' ? (previewOn ? 'preview idle — pick an effect to preview' : 'realtime off — normal scene on the roof') : (mode || ''), L.w / 2, L.h / 2); }
+  if(previewOn){ ctx.fillStyle = '#ffc357'; ctx.font = 'bold 26px sans-serif'; ctx.textAlign = 'left'; ctx.fillText('PREVIEW — not on the roof', 16, 36); ctx.textAlign = 'center'; }
+}
+let statics = {}, applied = '', engState = '', lightOn = false;
+fetch('/local/govee_themes_px.json?t=' + Date.now(), {cache:'no-store'}).then(r => r.json()).then(j => { statics = j; buildStatics(); }).catch(() => {});
+let pvStatic = null;   // Preview tab: static theme drawn on the canvas only
+function buildStatics(){ $('statics').innerHTML = '';
+  const add = (label, sub, strip, on, fn) => { const b = document.createElement('button'); b.className = 'static' + (on ? ' on' : '');
+    b.innerHTML = label + ' <small>' + sub + '</small>' + strip; b.onclick = fn; $('statics').appendChild(b); };
+  for(const [name, t] of Object.entries(statics)){
+    const K = 24, stops = []; for(let i = 0; i < K; i++){ const c = t.px.slice(i * 6, i * 6 + 6), a = i / K * 100, e = (i + 0.8) / K * 100;   // first 24 LEDs as blocks: a whole-strip blend washes patterns out
+      stops.push('#' + (c === '000000' ? '232a36' : c) + ' ' + a.toFixed(1) + '% ' + e.toFixed(1) + '%', '#0e1117 ' + e.toFixed(1) + '% ' + ((i + 1) / K * 100).toFixed(1) + '%'); }
+    add(name, t.pct + '%', '<i style="background:linear-gradient(90deg,' + stops.join(',') + ')"></i>',
+        previewOn ? pvStatic === name : (lightOn && engState === 'Off' && applied === name), () => applyStatic(name)); }
+  add('Off', previewOn ? 'clear canvas' : 'lights off', '<i style="background:#232a36"></i>', previewOn ? false : !lightOn, () => applyStatic(null));
+  $('stnow').textContent = previewOn ? (pvStatic ? 'previewing ' + pvStatic : '') : lightOn ? (engState === 'Off' ? 'on the roof: ' + applied : 'realtime running') : 'light off';
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function stopRealtime(){   // the engine re-applies the OLD theme as it stops; wait until that script run has finished
+  if(!engState || engState === 'Off') return;
+  await api('POST', '/api/services/input_select/select_option', {entity_id:'input_select.govee_rt_scene', option:'Off'});
+  await api('POST', '/api/services/input_text/set_value', {entity_id:'input_text.govee_rt_cmd', value:'v1|off||||#' + Date.now().toString(36)});
+  for(let i = 0; i < 20; i++){ await sleep(500); if((await api('GET', '/api/states/sensor.govee_rt_engine')).state === 'Off') break; }
+  await sleep(1500);
+  for(let i = 0; i < 20; i++){ if((await api('GET', '/api/states/script.govee_apply_theme')).state === 'off') break; await sleep(500); }
+}
+async function applyStatic(name){   // name = null -> Off
+  if(previewOn){ pvStatic = name; previewMode = null; send('preview', 'Off'); applyPreviewUi(); buildKnobs(null); buildStatics(); return; }
+  logLine('static theme ' + (name || 'OFF')); $('now').innerHTML = '<span class="amber">' + (name ? 'setting ' + name : 'turning the lights off') + '…</span>';
+  try {
+    await stopRealtime();
+    if(name) await api('POST', '/api/services/script/turn_on', {entity_id:'script.govee_apply_theme', variables:{theme:name}});
+    else await api('POST', '/api/services/light/turn_off', {entity_id:LIGHT});
+    $('now').innerHTML = '<span class="ok">' + (name ? name + ' sent to the roof' : 'lights off') + '</span>'; setTimeout(poll, 1500);
+  } catch(e){ $('now').innerHTML = '<span class="bad">' + e.message + '</span>'; }
+}
+// Frames are replayed DELAY s behind on the page's own clock: each frame file carries the engine's last ~1.2 s of frames
+// ('hist'), so late or bunched-up fetches (a network share stalls unpredictably) no longer show as stutters or jumps.
+const DELAY = 0.5;
+let buf = [], bufSrc = '', fileMode = null, fileT = 0, lags = [], missed = 0, shownKey = '';
+async function fetchFrames(){
+  try {
+    const name = previewOn ? 'govee_preview.json' : 'govee_frame.json';
+    const r = await fetch('/local/' + name + '?t=' + Date.now(), {cache:'no-store'}); if(!r.ok) throw new Error('no frame file');
+    const f = await r.json(); const now = Date.now() / 1000;
+    if(name !== bufSrc || f.mode !== fileMode){ buf = []; bufSrc = name; fileMode = f.mode; }
+    lags.push(now - f.t); if(lags.length > 100) lags.shift();          // clock offset PC -> this device (+ fastest delivery)
+    const last = buf.length ? buf[buf.length - 1][0] : 0;
+    for(const [t, px] of (f.hist || (f.px ? [[f.t, f.px]] : []))) if(t > last) buf.push([t, px]);
+    while(buf.length > 1 && buf[0][0] < f.t - 3) buf.shift();
+    fileT = f.t; missed = 0;
+  } catch(e){ missed++; }                                              // a dropped/half-written fetch: keep playing the buffer
+}
+function show(px, mode, label){ const key = (px || '') + '|' + mode + '|' + label; if(key === shownKey) return; shownKey = key; drawRoof(px, mode); $('live').textContent = label; }
+function liveTick(){
+  if(previewOn && pvStatic && statics[pvStatic]) return show(statics[pvStatic].px, 'static', pvStatic + ' · PREVIEW');
+  if(missed > 20) return show(null, 'no frame data', '');
+  const lag = lags.length ? Math.min(...lags) : 0, now = Date.now() / 1000, age = now - lag - fileT;   // age of the newest frame, clock-corrected
+  const st = !previewOn && engState === 'Off' && lightOn && statics[applied];   // realtime off: show the static theme on the roof
+  if(st && (age > 4 || fileMode === 'Off')) return show(st.px, 'static', applied + ' · static');
+  if(age > 4 || !fileMode) return show(null, previewOn ? 'preview idle' : 'no fresh frames (engine idle or down)', previewOn ? 'preview' : 'stale');
+  if(fileMode === 'Off' || !buf.length) return show(null, 'Off', previewOn ? 'preview' : '');
+  const play = now - lag - DELAY; let fr = buf[0];
+  for(const b of buf){ if(b[0] <= play) fr = b; else break; }
+  show(fr[1], fileMode, fileMode + (previewOn ? ' · PREVIEW' : ' · live'));
+}
+setInterval(fetchFrames, 100); setInterval(liveTick, 25);
+
+function showActive(mode){
+  for(const m of ['fill', 'alt', 'grad', 'chase']) $('p-' + m).className = m === mode ? 'on' : '';
+  for(const e of EFFECTS) $('fx-' + e).className = e === activeEffect ? 'on' : '';
+}
+async function poll(){
+  if(!tok){ $('tokcard').hidden = false; document.querySelector('details').open = true; $('status').innerHTML = '<span class="bad">no token saved</span>'; return; }
+  try {
+    const [eng, light, ap] = await Promise.all([api('GET', '/api/states/sensor.govee_rt_engine').catch(() => null), api('GET', '/api/states/' + LIGHT).catch(() => null), api('GET', '/api/states/sensor.govee_applied_theme').catch(() => null)]);
+    engState = eng ? eng.state : ''; lightOn = !!light && light.state === 'on'; applied = ap ? ap.state : '';
+    buildStatics();
+    const lightTxt = light ? `Light: ${light.state}${light.attributes.effect ? ' · scene ' + light.attributes.effect : ''}` : '';
+    if(!eng || ['unknown', 'unavailable'].includes(eng.state)){ $('status').innerHTML = '<span class="bad">Engine offline</span> — buttons do nothing until it is running.\n' + lightTxt; activeEffect = null; showActive(null); return; }
+    const a = eng.attributes; if(a.params) params = a.params; if(a.preview_params) pparams = a.preview_params;
+    if(a.params && a.params.roof_bri != null && !dragging){ $('bri').value = a.params.roof_bri; $('briv').textContent = a.params.roof_bri; }
+    if(a.zones && JSON.stringify(a.zones) !== zonesSig){ zonesSig = JSON.stringify(a.zones); ZONE_NAMES = a.zones; bBuild(); }
+    if(a.designs && JSON.stringify(a.designs) !== designsSig){ designsSig = JSON.stringify(a.designs); designs = a.designs; bStartList(); }
+    if(a.diy && JSON.stringify(a.diy) !== diySig){ diySig = JSON.stringify(a.diy); diys = a.diy; bStartList(); }
+    if(a.preview_mode !== undefined && !previewMode) previewMode = a.preview_mode; applyPreviewUi();
+    const parts = (a.cmd || '').split('|'); const mode = eng.state === 'Manual' ? parts[1] : null;
+    activeEffect = EFFECTS.includes(eng.state) ? eng.state : null;
+    const group = currentGroup() || (!previewOn && eng.state !== 'Off' ? 'Global' : null);   // Manual patterns, builder designs
+    if(group !== knobGroup) buildKnobs(group); else refreshKnobs();
+    if(eng.state === 'Off'){ $('status').innerHTML = `Realtime: <b>OFF</b> — normal scene on the roof.\n${lightTxt}`; $('now').textContent = ''; }
+    else {
+      const what = eng.state === 'Manual' ? (PATTERN_NAMES[mode] || mode) : eng.state;
+      $('status').innerHTML = `Realtime: <b class="ok">ON</b> — <b>${what}</b>` + (a.n ? ` · ${a.n} px` : '') + (a.fps ? ` · ${a.fps} fps` : '') + (a.led != null ? ` · lit pixel <b>${a.led + 1}</b>` : '') + `\n${lightTxt}`;
+      $('now').innerHTML = `<span class="ok">roof is painting: ${what}</span>`;
+    }
+    showActive(mode);
+  } catch(e){ $('status').innerHTML = '<span class="bad">' + e.message + '</span>'; }
+}
+buildCounts(); buildColors(); buildSpeeds(); buildGrid(); buildKnobs(null); bBuild(); poll(); setInterval(poll, 2000);
+</script></body></html>

@@ -1,0 +1,17 @@
+name: Govee Realtime
+version: "0.1.0"
+slug: govee_realtime
+description: Per-LED realtime animations and a theme builder for Govee Permanent Lights Pro (H706C) over the LAN
+url: https://github.com/gvoepel/ha-govee-realtime
+arch:
+  - amd64
+  - aarch64
+  - armv7
+startup: application
+boot: auto
+init: false
+host_network: true
+homeassistant_api: true
+map:
+  - type: homeassistant_config
+    read_only: false

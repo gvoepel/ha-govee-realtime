@@ -1,0 +1,126 @@
+# Home Assistant package for the Govee H706C kit.
+# Install: copy to /config/packages/govee_package.yaml and make sure configuration.yaml has
+#   homeassistant:
+#     packages: !include_dir_named packages
+# then do a FULL Home Assistant restart (Settings > System > Restart). A YAML reload is not enough for a new
+# shell_command.
+#
+# Assumes the light is light.permanent_lights_pro (govee2mqtt's name for an H706C called "Permanent Lights Pro").
+# If yours differs, search-and-replace it here, in config.json (light_entity) and at the top of govee-rt.html.
+
+input_select:
+  govee_rt_scene:
+    name: Govee realtime effect
+    icon: mdi:star-shooting
+    # no `initial`: a running show survives an HA restart. The engine adds the theme builder's saved designs to these
+    # options itself (over the websocket API), so they can be scheduled like any effect.
+    options: ['Off', Hyperspace, Imperial March, Saber Duel, Duel + March, LED Sweep, Halloween Glow, Custom]
+
+input_text:
+  govee_rt_cmd:                       # govee-rt.html -> engine: 'v1|<mode>|<N>|<rrggbb>|<arg>|#nonce'
+    name: Govee realtime command
+    max: 255
+
+# The theme builder talks to the engine through sensor.govee_rt_design, which the page creates with POST /api/states
+# (a design is too big for an input_text). Nothing to declare here.
+
+shell_command:
+  # govee_diy.py + config.json live in /config/govee/. The quotes keep theme names with spaces as ONE argument.
+  govee_diy: 'python3 /config/govee/govee_diy.py "{{ theme }}"'
+
+script:
+  govee_apply_theme:
+    alias: Govee - Apply Theme
+    description: >-
+      Every theme change goes through here (your automations, govee-rt.html, and the realtime engine when it stops).
+      'RT: <effect or saved design>' starts a realtime effect on the engine. Themes in `diy` and 'DIY: <name>' (saved from
+      the theme builder) are drawn LED by LED over LAN by govee_diy.py; anything else is a Govee app scene by name.
+      DIY themes must NOT also send a cloud scene: the cloud command lands 5-20 s later and overwrites the DIY.
+    mode: restart
+    fields:
+      theme:
+        description: 'RT: <effect>', 'DIY: <builder theme>', a THEMES name from govee_diy.py, or a scene from the light's effect list
+        example: Corners
+    variables:
+      diy: ['Corners', 'Halloween PG']   # = THEMES names in govee_diy.py
+    sequence:
+      - event: govee_theme_applied      # sensor.govee_applied_theme latches this
+        event_data:
+          theme: '{{ theme }}'
+      - if:                             # a realtime theme: hand it to the engine and stop here
+          - condition: template
+            value_template: "{{ theme.startswith('RT: ') }}"
+        then:
+          - action: input_select.select_option
+            target:
+              entity_id: input_select.govee_rt_scene
+            data:
+              option: '{{ theme[4:] }}'
+          - stop: realtime effect started
+      - if:                             # any other theme replaces a running realtime effect
+          - condition: template
+            value_template: "{{ not is_state('input_select.govee_rt_scene', 'Off') }}"
+        then:
+          - action: input_select.select_option
+            target:
+              entity_id: input_select.govee_rt_scene
+            data:
+              option: 'Off'
+      - if:
+          - condition: template
+            value_template: "{{ theme in diy or theme.startswith('DIY: ') }}"
+        then:
+          - action: light.turn_on
+            target:
+              entity_id: light.permanent_lights_pro
+          - delay: 2
+          - action: shell_command.govee_diy
+            data:
+              theme: '{{ theme }}'
+        else:
+          - action: light.turn_on
+            target:
+              entity_id: light.permanent_lights_pro
+            data:
+              effect: '{{ theme }}'
+
+template:
+  # What is ACTUALLY on the lights. The light's `effect` attribute is unreliable: the device can't report its running
+  # scene, so govee2mqtt forgets the name after every restart, and LAN DIY themes leave a stale name there. This
+  # trigger-based sensor latches the last theme applied and survives restarts. The realtime engine restores it on stop
+  # (unless it is itself an 'RT: ' theme, then it restores config.json's default_theme).
+  - trigger:
+      - platform: event
+        event_type: govee_theme_applied
+      - platform: state
+        entity_id: light.permanent_lights_pro
+        attribute: effect
+    sensor:
+      - name: Govee Applied Theme
+        unique_id: govee_applied_theme
+        icon: mdi:palette-swatch
+        state: >-
+          {% set bad = [none, '', 'None', 'unknown', 'unavailable'] %}
+          {% set eff = state_attr('light.permanent_lights_pro', 'effect') %}
+          {% if trigger.platform == 'event' and trigger.event.data.theme | default('') %}
+            {{ trigger.event.data.theme }}
+          {% elif eff not in bad %}
+            {{ eff }}
+          {% else %}
+            {{ this.state if this.state not in bad else 'unknown' }}
+          {% endif %}
+
+automation:
+  # Optional: tell me if an effect is selected but the engine has gone quiet (PC asleep, engine crashed).
+  # Replace notify.notify with your phone's notify service.
+  - id: govee_realtime_engine_stale_alert
+    alias: Govee - realtime engine went quiet
+    trigger:
+      - platform: template            # re-checked every minute (now()), fires once when it turns true
+        value_template: >-
+          {{ states('input_select.govee_rt_scene') != 'Off'
+             and (as_timestamp(now()) - as_timestamp(states.sensor.govee_rt_engine.last_updated | default(now()))) > 180 }}
+    action:
+      - action: notify.notify
+        data:
+          message: Govee realtime engine has not reported for 3 minutes - is the PC on?

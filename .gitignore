@@ -1,0 +1,5 @@
+__pycache__/
+params.json
+designs.json
+config.json
+govee_*.json

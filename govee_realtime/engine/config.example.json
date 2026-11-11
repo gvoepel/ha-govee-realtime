@@ -1,0 +1,47 @@
+{
+  "_comment": "Copy to config.json and fill in. LED indexes are 0-based from the POWER end of the strip. Ranges are [first, last] inclusive.",
+
+  "govee_ip": "192.168.1.50",
+  "ha_url": "http://homeassistant.local:8123",
+  "ha_token_file": "C:\\path\\to\\ha_token.txt",
+  "light_entity": "light.permanent_lights_pro",
+
+  "www_dir": "\\\\homeassistant\\config\\www",
+  "ha_www_dir": "/config/www",
+
+  "leds": 80,
+  "max_pixels": 79,
+  "_max_pixels": "The most pixels the strip takes in one realtime frame (a bigger frame is dropped). It follows the app's 'number of segments' setting: with the strip 'cut' at its real LED count it equals leds and every pixel is one LED; with a longer nominal length it is less and LEDs light in pairs. Find it with the pixel grid on the page.",
+
+  "default_theme": "Corners",
+  "_default_theme": "Optional. What the engine restores when it stops while the applied theme is itself a realtime one ('RT: ...').",
+
+  "zones": {
+    "_help": "Every zone is optional. An effect falls back to the whole strip when a zone it needs is missing. The theme builder offers each arch, runway, side and the door as a zone.",
+    "arches": [[13, 28], [51, 60]],
+    "runways": [[29, 39], [50, 45]],
+    "door": [40, 44],
+    "sparkle": [[0, 12], [61, 68]],
+    "off": [69]
+  },
+
+  "corners": [0, 12, 13, 20, 21, 28, 29, 40, 44, 50, 51, 55, 56, 60, 61, 68],
+
+  "layout": {
+    "_help": "Optional: where each run of LEDs sits on the canvas (pixels on a 1200x600 canvas). python layout.py turns this into govee_led_layout.json.",
+    "width": 1200,
+    "height": 600,
+    "runs": [
+      {"leds": [0, 12],  "from": [80, 520],  "to": [80, 200]},
+      {"leds": [13, 20], "from": [80, 200],  "to": [250, 80]},
+      {"leds": [21, 28], "from": [250, 80],  "to": [420, 200]},
+      {"leds": [29, 39], "from": [420, 200], "to": [520, 380]},
+      {"leds": [40, 44], "from": [520, 380], "to": [680, 380]},
+      {"leds": [45, 50], "from": [680, 380], "to": [780, 200]},
+      {"leds": [51, 55], "from": [780, 200], "to": [950, 80]},
+      {"leds": [56, 60], "from": [950, 80],  "to": [1120, 200]},
+      {"leds": [61, 68], "from": [1120, 200], "to": [1120, 520]}
+    ],
+    "labels": [[[600, 560], "front of house"]]
+  }
+}
