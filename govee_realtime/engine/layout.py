@@ -11,7 +11,7 @@ import sys, os, json
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 _cfg = os.environ.get('GOVEE_CONFIG') or os.path.join(HERE, 'config.json')
-CFG = json.load(open(_cfg if os.path.exists(_cfg) else os.path.join(HERE, 'config.example.json')))
+CFG = json.load(open(_cfg if os.path.exists(_cfg) else os.path.join(HERE, 'example_config.json')))
 N = int(CFG.get('leds', 80))
 
 def build(cfg):

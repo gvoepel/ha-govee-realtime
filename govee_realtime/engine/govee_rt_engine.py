@@ -41,7 +41,7 @@ if os.name == 'nt':
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 _cfg_path = os.environ.get('GOVEE_CONFIG') or os.path.join(HERE, 'config.json')
-if not os.path.exists(_cfg_path): _cfg_path = os.path.join(HERE, 'config.example.json')
+if not os.path.exists(_cfg_path): _cfg_path = os.path.join(HERE, 'example_config.json')
 CFG = json.load(open(_cfg_path))
 IP = CFG['govee_ip']
 SUP = os.environ.get('SUPERVISOR_TOKEN')                        # set inside the Home Assistant add-on: Core is reached through the Supervisor proxy

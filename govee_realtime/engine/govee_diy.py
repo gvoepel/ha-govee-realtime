@@ -26,7 +26,7 @@ import sys, os, json, socket, base64, time, functools, operator
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 _cfg = os.path.join(HERE, 'config.json')
-CFG = json.load(open(_cfg if os.path.exists(_cfg) else os.path.join(HERE, 'config.example.json')))
+CFG = json.load(open(_cfg if os.path.exists(_cfg) else os.path.join(HERE, 'example_config.json')))
 IP, N = CFG['govee_ip'], int(CFG.get('leds', 80))
 WWW = CFG.get('ha_www_dir', '/config/www')
 EFFECTS = {'Cycle': 0x02, 'Clockwise': 0x09, 'Counterclockwise': 0x0a, 'Twinkle': 0x0f, 'Gradient': 0x13, 'Breathe': 0x14}

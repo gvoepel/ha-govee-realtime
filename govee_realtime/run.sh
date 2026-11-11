@@ -11,7 +11,7 @@ if [ -f "$D/govee_rt_engine.py" ]; then
 fi
 
 if [ ! -f "$D/config.json" ]; then
-    cp /app/config.example.json "$D/config.json"
+    cp /app/example_config.json "$D/config.json"
     echo "Wrote $D/config.json - set govee_ip, leds and your zones, then restart the add-on."
     exit 1
 fi

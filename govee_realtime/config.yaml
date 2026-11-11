@@ -1,5 +1,5 @@
 name: Govee Realtime
-version: "0.1.0"
+version: "0.1.1"
 slug: govee_realtime
 description: Per-LED realtime animations and a theme builder for Govee Permanent Lights Pro (H706C) over the LAN
 url: https://github.com/gvoepel/ha-govee-realtime
