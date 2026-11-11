@@ -25,8 +25,8 @@ input_text:
 # (a design is too big for an input_text). Nothing to declare here.
 
 shell_command:
-  # govee_diy.py + config.json live in /config/govee/. The quotes keep theme names with spaces as ONE argument.
-  govee_diy: 'python3 /config/govee/govee_diy.py "{{ theme }}"'
+  # govee_diy.py lives in /config/govee_rt/ next to the config.json the add-on writes. The quotes keep theme names with spaces as ONE argument.
+  govee_diy: 'python3 /config/govee_rt/govee_diy.py "{{ theme }}"'
 
 script:
   govee_apply_theme:

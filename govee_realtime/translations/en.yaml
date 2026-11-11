@@ -1,0 +1,32 @@
+configuration:
+  govee_ip:
+    name: Light IP address
+    description: The Govee light's IP on your network (LAN Control must be on in the Govee app).
+  leds:
+    name: Number of lights
+  max_pixels:
+    name: Max pixels per frame
+    description: Leave empty = number of lights. Lower only if the strip ignores full-length frames.
+  light_entity:
+    name: Light entity
+  default_theme:
+    name: Default theme
+    description: Restored when realtime stops while the applied theme is itself a realtime one.
+  arches:
+    name: Arches / gables
+    description: One range per gable, e.g. 13-28 (0-based from the power end).
+  runways:
+    name: Runways
+    description: Runs that stream toward a target end, written start-end, e.g. 29-39 and 50-45.
+  door:
+    name: Door
+    description: The LEDs the runways lead to, e.g. 40-44.
+  sparkle:
+    name: Sparkle sides
+    description: Side runs that twinkle in Hyperspace, e.g. 0-12.
+  always_off:
+    name: Always off
+    description: LEDs to keep dark, e.g. 69.
+  corners:
+    name: Corners
+    description: LEDs lit by the static Corners theme, e.g. 0, 12-13, 20-21.

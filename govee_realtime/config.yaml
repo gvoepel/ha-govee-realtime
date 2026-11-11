@@ -1,5 +1,5 @@
 name: Govee Realtime
-version: "0.1.1"
+version: "0.2.0"
 slug: govee_realtime
 description: Per-LED realtime animations and a theme builder for Govee Permanent Lights Pro (H706C) over the LAN
 url: https://github.com/gvoepel/ha-govee-realtime
@@ -15,3 +15,24 @@ homeassistant_api: true
 map:
   - type: homeassistant_config
     read_only: false
+options:
+  govee_ip: ""
+  leds: 80
+  light_entity: light.permanent_lights_pro
+  arches: []
+  runways: []
+  sparkle: []
+  always_off: []
+  corners: []
+schema:
+  govee_ip: str?
+  leds: int(1,255)
+  max_pixels: int(1,255)?
+  light_entity: str
+  default_theme: str?
+  arches: ["match(^[0-9]+-[0-9]+$)"]
+  runways: ["match(^[0-9]+-[0-9]+$)"]
+  door: match(^[0-9]+-[0-9]+$)?
+  sparkle: ["match(^[0-9]+-[0-9]+$)"]
+  always_off: ["match(^[0-9]+(-[0-9]+)?$)"]
+  corners: ["match(^[0-9]+(-[0-9]+)?$)"]
